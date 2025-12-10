@@ -1,0 +1,35 @@
+# Python
+__pycache__/
+*.py[cod]
+venv/
+env/
+.env
+
+# Node
+node_modules/
+build/
+dist/
+
+# Docker
+*.log
+
+# IDE
+.vscode/
+.idea/
+
+# Ansible
+*.retry
+vault-password.txt
+
+# Database
+*.db
+*.sqlite
+
+# Reports
+reports/*.html
+reports/*.json
+reports/*.csv
+
+# Credentials
+credentials.yml
+secrets/
