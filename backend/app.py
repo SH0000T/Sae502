@@ -37,13 +37,15 @@ def create_app(config_name='development'):
             'endpoints': {
                 'health': '/api/health',
                 'scans': '/api/scans',
-                'start_scan': '/api/scans/start'
+                'scan_details': '/api/scans/<id>',
+                'start_scan': '/api/scans/start',
+                'stats': '/api/scans/stats'
             }
         }), 200
     
-    # Import et enregistrement des routes (on les créera plus tard)
-    # from routes import scans_bp
-    # app.register_blueprint(scans_bp, url_prefix='/api')
+    # Enregistrement des routes
+    from routes.scans import scans_bp
+    app.register_blueprint(scans_bp, url_prefix='/api')
     
     return app
 
