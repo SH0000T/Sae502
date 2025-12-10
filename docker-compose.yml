@@ -1,0 +1,65 @@
+version: '3.8'
+
+services:
+  # Base de données PostgreSQL
+  database:
+    image: postgres:15-alpine
+    container_name: adsecure-db
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: adsecurecheck
+      POSTGRES_USER: admin
+      POSTGRES_PASSWORD: ChangeMe123!
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - adsecure-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U admin -d adsecurecheck"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # Backend Flask
+  backend:
+    build: ./backend
+    container_name: adsecure-backend
+    restart: unless-stopped
+    ports:
+      - "5000:5000"
+    environment:
+      FLASK_APP: app.py
+      FLASK_ENV: development
+      DATABASE_URL: postgresql://admin:ChangeMe123!@database:5432/adsecurecheck
+      SECRET_KEY: your-secret-key-change-in-production
+    volumes:
+      - ./backend:/app
+      - ./reports:/app/reports
+    depends_on:
+      database:
+        condition: service_healthy
+    networks:
+      - adsecure-network
+    command: python app.py
+
+  # Frontend React (on le fera plus tard)
+  # frontend:
+  #   build: ./frontend
+  #   container_name: adsecure-frontend
+  #   restart: unless-stopped
+  #   ports:
+  #     - "80:80"
+  #     - "443:443"
+  #   depends_on:
+  #     - backend
+  #   networks:
+  #     - adsecure-network
+
+volumes:
+  postgres_data:
+
+networks:
+  adsecure-network:
+    driver: bridge
