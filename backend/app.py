@@ -37,15 +37,20 @@ def create_app(config_name='development'):
             'endpoints': {
                 'health': '/api/health',
                 'scans': '/api/scans',
-                'scan_details': '/api/scans/<id>',
                 'start_scan': '/api/scans/start',
-                'stats': '/api/scans/stats'
+                'stats': '/api/scans/stats',
+                'test_ad': '/api/ad/test-connection',
+                'get_users': '/api/ad/users',
+                'privileged_users': '/api/ad/privileged-users'
             }
         }), 200
     
     # Enregistrement des routes
     from routes.scans import scans_bp
+    from routes.ad_test import ad_test_bp
+    
     app.register_blueprint(scans_bp, url_prefix='/api')
+    app.register_blueprint(ad_test_bp, url_prefix='/api')
     
     return app
 

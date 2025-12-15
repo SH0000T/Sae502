@@ -1,8 +1,11 @@
 from flask import Blueprint, request, jsonify
 from models.scan import db, Scan
+from modules.scanner import ADScanner
 from datetime import datetime
+import logging
 
 scans_bp = Blueprint('scans', __name__)
+logger = logging.getLogger(__name__)
 
 @scans_bp.route('/scans', methods=['GET'])
 def get_scans():
@@ -61,6 +64,7 @@ def start_scan():
         ad_domain = data.get('ad_domain')
         ad_username = data.get('ad_username')
         ad_password = data.get('ad_password')
+        use_ssl = data.get('use_ssl', False)
         
         if not all([ad_server, ad_domain, ad_username, ad_password]):
             return jsonify({
@@ -72,23 +76,66 @@ def start_scan():
         new_scan = Scan(
             ad_server=ad_server,
             ad_domain=ad_domain,
-            status='pending'
+            status='running'
         )
         
         db.session.add(new_scan)
         db.session.commit()
         
-        # TODO: Lancer le scan en arrière-plan (on le fera après)
-        # Pour l'instant, on simule juste la création
-        
-        return jsonify({
-            'success': True,
-            'message': 'Scan created successfully',
-            'scan': new_scan.to_dict()
-        }), 201
+        try:
+            # Lance le scan
+            logger.info(f"🚀 Démarrage du scan #{new_scan.id}...")
+            
+            scanner = ADScanner(
+                ad_server=ad_server,
+                ad_domain=ad_domain,
+                ad_username=ad_username,
+                ad_password=ad_password,
+                use_ssl=use_ssl
+            )
+            
+            results = scanner.run_full_scan()
+            
+            # Met à jour le scan avec les résultats
+            new_scan.status = 'completed'
+            new_scan.completed_at = datetime.utcnow()
+            new_scan.report_data = results
+            new_scan.total_vulnerabilities = results['statistics']['total_vulnerabilities']
+            new_scan.critical_count = results['statistics']['critical_count']
+            new_scan.high_count = results['statistics']['high_count']
+            new_scan.medium_count = results['statistics']['medium_count']
+            new_scan.low_count = results['statistics']['low_count']
+            new_scan.risk_score = results['statistics']['risk_score']
+            
+            db.session.commit()
+            
+            logger.info(f"✅ Scan #{new_scan.id} terminé avec succès")
+            
+            return jsonify({
+                'success': True,
+                'message': 'Scan completed successfully',
+                'scan': new_scan.to_dict(),
+                'results': results
+            }), 201
+            
+        except Exception as scan_error:
+            # Met à jour le statut en échec
+            new_scan.status = 'failed'
+            new_scan.completed_at = datetime.utcnow()
+            new_scan.report_data = {'error': str(scan_error)}
+            db.session.commit()
+            
+            logger.error(f"❌ Scan #{new_scan.id} échoué: {str(scan_error)}")
+            
+            return jsonify({
+                'success': False,
+                'error': f'Scan failed: {str(scan_error)}',
+                'scan_id': new_scan.id
+            }), 500
         
     except Exception as e:
         db.session.rollback()
+        logger.error(f"❌ Erreur lors de la création du scan: {str(e)}")
         return jsonify({
             'success': False,
             'error': str(e)
@@ -125,14 +172,16 @@ def get_stats():
     try:
         total_scans = Scan.query.count()
         completed_scans = Scan.query.filter_by(status='completed').count()
+        failed_scans = Scan.query.filter_by(status='failed').count()
+        running_scans = Scan.query.filter_by(status='running').count()
         
         # Calcul des vulnérabilités totales
         scans = Scan.query.filter_by(status='completed').all()
-        total_vulns = sum(scan.total_vulnerabilities for scan in scans)
-        total_critical = sum(scan.critical_count for scan in scans)
-        total_high = sum(scan.high_count for scan in scans)
-        total_medium = sum(scan.medium_count for scan in scans)
-        total_low = sum(scan.low_count for scan in scans)
+        total_vulns = sum(scan.total_vulnerabilities for scan in scans) if scans else 0
+        total_critical = sum(scan.critical_count for scan in scans) if scans else 0
+        total_high = sum(scan.high_count for scan in scans) if scans else 0
+        total_medium = sum(scan.medium_count for scan in scans) if scans else 0
+        total_low = sum(scan.low_count for scan in scans) if scans else 0
         
         # Score de risque moyen
         avg_risk_score = 0
@@ -144,6 +193,8 @@ def get_stats():
             'stats': {
                 'total_scans': total_scans,
                 'completed_scans': completed_scans,
+                'failed_scans': failed_scans,
+                'running_scans': running_scans,
                 'total_vulnerabilities': total_vulns,
                 'critical_count': total_critical,
                 'high_count': total_high,

@@ -19,6 +19,12 @@ RUN pip install --no-cache-dir -r requirements.txt
 # Copie le code de l'application
 COPY . .
 
+# Copie la configuration OpenSSL pour activer MD4
+COPY openssl.cnf /app/openssl.cnf
+
+# Active MD4 via variable d'environnement
+ENV OPENSSL_CONF=/app/openssl.cnf
+
 # Crée le dossier reports
 RUN mkdir -p /app/reports
 
