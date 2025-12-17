@@ -4,8 +4,10 @@ Module principal d'orchestration des scans
 from modules.ad_connector import ADConnector
 from modules.audit_users import UserAuditor
 from modules.audit_vulns import VulnerabilityAuditor
+from modules.report_generator import ReportGenerator
 from datetime import datetime
 import logging
+import os
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +34,7 @@ class ADScanner:
             'vulnerabilities': [],
             'statistics': {}
         }
+        self.reports = {}
     
     def _calculate_risk_score(self, vulnerabilities):
         """
@@ -75,8 +78,59 @@ class ADScanner:
         
         return counts
     
-    def run_full_scan(self):
-        """Lance un scan complet de l'AD"""
+    def _generate_reports(self):
+        """Génère tous les formats de rapports"""
+        logger.info("📄 Génération des rapports...")
+        
+        try:
+            generator = ReportGenerator(self.results)
+            
+            self.reports['text'] = generator.generate_text_report()
+            self.reports['csv'] = generator.generate_csv_report()
+            self.reports['html'] = generator.generate_html_summary()
+            
+            # Sauvegarde les rapports localement
+            reports_dir = '/app/reports'
+            os.makedirs(reports_dir, exist_ok=True)
+            
+            timestamp = datetime.now().strftime('%Y%m%d_%H%M%S')
+            domain_name = self.ad_domain.replace('.', '_')
+            
+            # Fichier texte
+            txt_path = f"{reports_dir}/rapport_{domain_name}_{timestamp}.txt"
+            with open(txt_path, 'w', encoding='utf-8') as f:
+                f.write(self.reports['text'])
+            logger.info(f"✅ Rapport texte sauvegardé: {txt_path}")
+            
+            # Fichier CSV
+            csv_path = f"{reports_dir}/rapport_{domain_name}_{timestamp}.csv"
+            with open(csv_path, 'w', encoding='utf-8') as f:
+                f.write(self.reports['csv'])
+            logger.info(f"✅ Rapport CSV sauvegardé: {csv_path}")
+            
+            # Fichier HTML
+            html_path = f"{reports_dir}/rapport_{domain_name}_{timestamp}.html"
+            with open(html_path, 'w', encoding='utf-8') as f:
+                f.write(self.reports['html'])
+            logger.info(f"✅ Rapport HTML sauvegardé: {html_path}")
+            
+            self.results['scan_info']['report_files'] = {
+                'text': txt_path,
+                'csv': csv_path,
+                'html': html_path
+            }
+            
+        except Exception as e:
+            logger.error(f"❌ Erreur lors de la génération des rapports: {str(e)}")
+    
+    def run_full_scan(self, send_email=False, email_to=None):
+        """
+        Lance un scan complet de l'AD
+        
+        Args:
+            send_email (bool): Envoyer le rapport par email
+            email_to (str): Adresse email destinataire
+        """
         logger.info("="*60)
         logger.info("🚀 DÉMARRAGE DU SCAN COMPLET ACTIVE DIRECTORY")
         logger.info("="*60)
@@ -142,6 +196,28 @@ class ADScanner:
             
             # Déconnexion
             self.connector.disconnect()
+            
+            # Génération des rapports
+            self._generate_reports()
+            
+            # Envoi par email si demandé
+            if send_email and email_to:
+                logger.info(f"📧 Envoi du rapport par email à {email_to}...")
+                from modules.email_sender import EmailSender
+                
+                email_sender = EmailSender()
+                success = email_sender.send_report(
+                    to_email=email_to,
+                    scan_results=self.results,
+                    text_report=self.reports['text'],
+                    csv_report=self.reports['csv'],
+                    html_report=self.reports['html']
+                )
+                
+                if success:
+                    logger.info("✅ Email envoyé avec succès")
+                else:
+                    logger.warning("⚠️ Échec de l'envoi de l'email")
             
             # Résumé
             logger.info("\n" + "="*60)

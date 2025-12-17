@@ -1,8 +1,9 @@
-from flask import Blueprint, request, jsonify
+from flask import Blueprint, request, jsonify, send_file
 from models.scan import db, Scan
 from modules.scanner import ADScanner
 from datetime import datetime
 import logging
+import os
 
 scans_bp = Blueprint('scans', __name__)
 logger = logging.getLogger(__name__)
@@ -47,9 +48,63 @@ def get_scan(scan_id):
             'error': str(e)
         }), 500
 
+@scans_bp.route('/scans/<int:scan_id>/download/<format>', methods=['GET'])
+def download_report(scan_id, format):
+    """Télécharge le rapport dans le format demandé (txt, csv, html)"""
+    try:
+        scan = Scan.query.get(scan_id)
+        if not scan:
+            return jsonify({
+                'success': False,
+                'error': 'Scan not found'
+            }), 404
+        
+        if not scan.report_data or 'scan_info' not in scan.report_data:
+            return jsonify({
+                'success': False,
+                'error': 'No report available for this scan'
+            }), 404
+        
+        report_files = scan.report_data['scan_info'].get('report_files', {})
+        
+        if format not in ['text', 'csv', 'html']:
+            return jsonify({
+                'success': False,
+                'error': 'Invalid format. Use: text, csv, or html'
+            }), 400
+        
+        file_path = report_files.get(format)
+        
+        if not file_path or not os.path.exists(file_path):
+            return jsonify({
+                'success': False,
+                'error': f'Report file not found for format: {format}'
+            }), 404
+        
+        # Détermine le mimetype
+        mimetypes = {
+            'text': 'text/plain',
+            'csv': 'text/csv',
+            'html': 'text/html'
+        }
+        
+        return send_file(
+            file_path,
+            mimetype=mimetypes[format],
+            as_attachment=True,
+            download_name=os.path.basename(file_path)
+        )
+        
+    except Exception as e:
+        logger.error(f"Error downloading report: {str(e)}")
+        return jsonify({
+            'success': False,
+            'error': str(e)
+        }), 500
+
 @scans_bp.route('/scans/start', methods=['POST'])
 def start_scan():
-    """Lance un nouveau scan"""
+    """Lance un nouveau scan avec génération de rapports et envoi email optionnel"""
     try:
         data = request.get_json()
         
@@ -65,6 +120,8 @@ def start_scan():
         ad_username = data.get('ad_username')
         ad_password = data.get('ad_password')
         use_ssl = data.get('use_ssl', False)
+        send_email = data.get('send_email', True)  # Par défaut, on envoie l'email
+        email_to = data.get('email_to', 'evanchezlui42@gmail.com')  # Email par défaut
         
         if not all([ad_server, ad_domain, ad_username, ad_password]):
             return jsonify({
@@ -85,6 +142,7 @@ def start_scan():
         try:
             # Lance le scan
             logger.info(f"🚀 Démarrage du scan #{new_scan.id}...")
+            logger.info(f"📧 Envoi email: {'OUI' if send_email else 'NON'} -> {email_to if send_email else 'N/A'}")
             
             scanner = ADScanner(
                 ad_server=ad_server,
@@ -94,7 +152,11 @@ def start_scan():
                 use_ssl=use_ssl
             )
             
-            results = scanner.run_full_scan()
+            # Lance le scan avec option d'envoi email
+            results = scanner.run_full_scan(
+                send_email=send_email,
+                email_to=email_to
+            )
             
             # Met à jour le scan avec les résultats
             new_scan.status = 'completed'
@@ -107,6 +169,10 @@ def start_scan():
             new_scan.low_count = results['statistics']['low_count']
             new_scan.risk_score = results['statistics']['risk_score']
             
+            # Stocke les chemins des rapports
+            if 'report_files' in results['scan_info']:
+                new_scan.report_path = results['scan_info']['report_files'].get('html', '')
+            
             db.session.commit()
             
             logger.info(f"✅ Scan #{new_scan.id} terminé avec succès")
@@ -115,7 +181,8 @@ def start_scan():
                 'success': True,
                 'message': 'Scan completed successfully',
                 'scan': new_scan.to_dict(),
-                'results': results
+                'results': results,
+                'email_sent': send_email
             }), 201
             
         except Exception as scan_error:

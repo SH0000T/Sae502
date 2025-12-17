@@ -34,6 +34,11 @@ services:
       FLASK_ENV: development
       DATABASE_URL: postgresql://admin:ChangeMe123!@database:5432/adsecurecheck
       SECRET_KEY: your-secret-key-change-in-production
+
+      # 🔐 CONFIGURATION EMAIL (OBLIGATOIRE)
+      EMAIL_USER: evanchezlui42@gmail.com
+      EMAIL_PASSWORD: ftrfndeevqajlapi # <-- App Password Gmail
+
     volumes:
       - ./backend:/app
       - ./reports:/app/reports
@@ -43,19 +48,6 @@ services:
     networks:
       - adsecure-network
     command: python app.py
-
-  # Frontend React (on le fera plus tard)
-  # frontend:
-  #   build: ./frontend
-  #   container_name: adsecure-frontend
-  #   restart: unless-stopped
-  #   ports:
-  #     - "80:80"
-  #     - "443:443"
-  #   depends_on:
-  #     - backend
-  #   networks:
-  #     - adsecure-network
 
 volumes:
   postgres_data:

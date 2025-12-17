@@ -1,0 +1,140 @@
+================================================================================
+RAPPORT D'AUDIT DE SÉCURITÉ ACTIVE DIRECTORY
+================================================================================
+
+📊 INFORMATIONS DU SCAN
+--------------------------------------------------------------------------------
+Serveur AD: 192.168.80.2
+Domaine: adsecure.local
+Date du scan: 2025-12-17T22:45:49.087327
+Durée: 0.28s
+Statut: completed
+
+📈 RÉSUMÉ DES VULNÉRABILITÉS
+--------------------------------------------------------------------------------
+Score de risque global: 100/100
+Total de vulnérabilités: 8
+  🔴 Critiques: 2
+  🟠 Élevées: 4
+  🟡 Moyennes: 2
+  🟢 Faibles: 0
+
+
+================================================================================
+🔴 VULNÉRABILITÉS CRITICAL (2)
+================================================================================
+
+[CRITICAL #1] Vérification Zerologon recommandée
+--------------------------------------------------------------------------------
+Description: La vulnérabilité Zerologon (CVE-2020-1472) permet une élévation de privilèges critique. Vérifiez que le patch est installé.
+CVE: CVE-2020-1472
+Nombre d'éléments affectés: 1
+
+Éléments affectés:
+  • Serveur: 192.168.80.2
+
+✅ Recommandation:
+  Installer les mises à jour de sécurité Microsoft d'août 2020 ou ultérieures. Vérifier que le patch KB4571694 est installé.
+
+
+[CRITICAL #2] Vérification PrintNightmare recommandée
+--------------------------------------------------------------------------------
+Description: La vulnérabilité PrintNightmare permet l'exécution de code à distance via le spooler d'impression.
+CVE: CVE-2021-34527
+Nombre d'éléments affectés: 1
+
+Éléments affectés:
+  • Serveur: 192.168.80.2
+
+✅ Recommandation:
+  Installer les patches de juillet 2021. Désactiver le spooler d'impression sur les DC si non utilisé.
+
+
+================================================================================
+🟠 VULNÉRABILITÉS HIGH (4)
+================================================================================
+
+[HIGH #1] Politique de mots de passe faible
+--------------------------------------------------------------------------------
+Description: La politique de mots de passe ne respecte pas les meilleures pratiques.
+Nombre d'éléments affectés: 1
+
+Éléments affectés:
+  • Politique: Longueur minimale du mot de passe
+    Valeur actuelle: 8
+    Valeur recommandée: 14+ caractères
+
+✅ Recommandation:
+  Augmenter la longueur minimale à 14 caractères minimum. Activer la complexité des mots de passe.
+
+
+[HIGH #2] Signature LDAP non obligatoire
+--------------------------------------------------------------------------------
+Description: La signature LDAP n'est pas forcée, ce qui permet des attaques man-in-the-middle.
+Nombre d'éléments affectés: 1
+
+Éléments affectés:
+  • Serveur: 192.168.80.2
+
+✅ Recommandation:
+  Activer "Domain controller: LDAP server signing requirements" à "Require signature" dans les GPO.
+
+
+[HIGH #3] Signature SMB non obligatoire
+--------------------------------------------------------------------------------
+Description: La signature SMB n'est pas forcée, permettant des attaques relay.
+Nombre d'éléments affectés: 1
+
+Éléments affectés:
+  • Serveur: 192.168.80.2
+
+✅ Recommandation:
+  Activer "Microsoft network server: Digitally sign communications (always)" dans les GPO.
+
+
+[HIGH #4] SMBv1 activé
+--------------------------------------------------------------------------------
+Description: Le protocole SMBv1 est obsolète et vulnérable (WannaCry, NotPetya). Il devrait être désactivé.
+Nombre d'éléments affectés: 1
+
+Éléments affectés:
+  • Serveur: 192.168.80.2
+
+✅ Recommandation:
+  Désactiver SMBv1 sur tous les serveurs et postes clients. Utiliser SMBv2 ou SMBv3.
+
+
+================================================================================
+🟡 VULNÉRABILITÉS MEDIUM (2)
+================================================================================
+
+[MEDIUM #1] Comptes avec mots de passe permanents
+--------------------------------------------------------------------------------
+Description: 2 comptes ont des mots de passe configurés pour ne jamais expirer.
+Nombre d'éléments affectés: 2
+
+Éléments affectés:
+  • Utilisateur: Administrateur | Dernière connexion: N/A | Statut: Password never expires flag set
+  • Utilisateur: Invité | Dernière connexion: N/A | Statut: Password never expires flag set
+
+✅ Recommandation:
+  Forcer l'expiration des mots de passe pour tous les comptes, sauf les comptes de service (et les stocker dans un gestionnaire sécurisé).
+
+
+[MEDIUM #2] Authentification NTLM potentiellement active
+--------------------------------------------------------------------------------
+Description: NTLM est moins sécurisé que Kerberos et sujet aux attaques relay.
+Nombre d'éléments affectés: 1
+
+Éléments affectés:
+  • {
+    "domain": "adsecure.local"
+}
+
+✅ Recommandation:
+  Forcer l'utilisation de Kerberos. Bloquer NTLM via GPO sauf si nécessaire pour la compatibilité.
+
+
+================================================================================
+FIN DU RAPPORT
+================================================================================

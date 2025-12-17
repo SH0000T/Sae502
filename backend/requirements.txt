@@ -24,3 +24,6 @@ requests==2.31.0
 # Tests
 pytest==7.4.3
 pytest-cov==4.1.0
+
+# Email
+secure-smtplib==0.1.1
