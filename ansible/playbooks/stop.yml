@@ -1,0 +1,14 @@
+---
+- name: Arrêt d'AdSecureCheck
+  hosts: production
+  become: yes
+
+  tasks:
+    - name: Arrêt des conteneurs Docker
+      community.docker.docker_compose:
+        project_src: "{{ project_path }}"
+        state: absent
+
+    - name: Confirmation de l'arrêt
+      debug:
+        msg: "✅ Tous les conteneurs ont été arrêtés"

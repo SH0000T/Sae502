@@ -1,0 +1,39 @@
+.settings {
+  padding: 2rem;
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.settings-header h2 {
+  font-size: 2rem;
+  color: #2d3748;
+  margin: 0 0 2rem 0;
+}
+
+.settings-content {
+  background: white;
+  border-radius: 12px;
+  padding: 4rem 2rem;
+  text-align: center;
+  box-shadow: 0 2px 10px rgba(0, 0, 0, 0.1);
+}
+
+.settings-section h3 {
+  margin: 1rem 0;
+  color: #2d3748;
+}
+
+.settings-section p {
+  color: #718096;
+  margin-bottom: 2rem;
+}
+
+.settings-section ul {
+  list-style: none;
+  padding: 0;
+  color: #4a5568;
+}
+
+.settings-section li {
+  padding: 0.5rem 0;
+}

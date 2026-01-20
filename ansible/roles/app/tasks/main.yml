@@ -1,0 +1,95 @@
+---
+- name: Vérification de l'existence du projet
+  stat:
+    path: "{{ project_path }}"
+  register: project_dir
+
+- name: Clone du dépôt Git (si nécessaire)
+  git:
+    repo: "https://github.com/SH0000T/Sae502.git"
+    dest: "{{ project_path }}"
+    version: main
+    force: yes
+  when: not project_dir.stat.exists
+
+- name: Arrêt des conteneurs existants
+  command: docker compose down
+  args:
+    chdir: "{{ project_path }}"
+  ignore_errors: yes
+
+- name: Suppression des anciens conteneurs et images inutilisées
+  command: docker system prune -af
+  changed_when: false
+
+- name: Build des images Docker
+  command: docker compose build --no-cache
+  args:
+    chdir: "{{ project_path }}"
+  register: build_output
+
+- name: Affichage du résultat du build
+  debug:
+    var: build_output.stdout_lines
+
+- name: Démarrage des conteneurs
+  command: docker compose up -d
+  args:
+    chdir: "{{ project_path }}"
+  register: docker_up
+
+- name: Affichage du résultat du démarrage
+  debug:
+    var: docker_up.stdout_lines
+
+- name: Attente du démarrage des services (30s)
+  pause:
+    seconds: 30
+
+- name: Vérification des conteneurs en cours d'exécution
+  command: docker ps
+  register: docker_ps
+  changed_when: false
+
+- name: Affichage des conteneurs actifs
+  debug:
+    var: docker_ps.stdout_lines
+
+- name: Test de l'API Backend
+  uri:
+    url: "http://localhost:{{ api_port }}/api/health"
+    method: GET
+    status_code: 200
+  register: api_health
+  retries: 5
+  delay: 5
+  until: api_health.status == 200
+  ignore_errors: yes
+
+- name: Affichage du statut de l'API
+  debug:
+    msg: "{{ 'API Health Check: OK' if api_health.status == 200 else 'API Health Check: FAILED' }}"
+  when: api_health is defined
+
+- name: Test du Frontend
+  uri:
+    url: "http://localhost:{{ frontend_port }}"
+    method: GET
+    status_code: 200
+  register: frontend_check
+  retries: 5
+  delay: 5
+  until: frontend_check.status == 200
+  ignore_errors: yes
+
+- name: Affichage du statut Frontend
+  debug:
+    msg: "{{ 'Frontend: OK' if frontend_check.status == 200 else 'Frontend: FAILED' }}"
+  when: frontend_check is defined
+
+- name: Confirmation du déploiement
+  debug:
+    msg: 
+      - "✅ Déploiement réussi !"
+      - "Frontend: http://localhost:{{ frontend_port }}"
+      - "API: http://localhost:{{ api_port }}"

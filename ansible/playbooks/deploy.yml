@@ -1,0 +1,50 @@
+---
+- name: Déploiement complet d'AdSecureCheck
+  hosts: production
+  become: yes
+  gather_facts: yes
+  vars_files:
+    - ../group_vars/all.yml
+
+  tasks:
+    - name: Affichage des informations du système
+      debug:
+        msg:
+          - "Système: {{ ansible_distribution }} {{ ansible_distribution_version }}"
+          - "Hostname: {{ ansible_hostname }}"
+          - "User: {{ ansible_user }}"
+
+    - name: Installation des packages de base
+      include_role:
+        name: common
+
+    - name: Installation et configuration de Docker
+      include_role:
+        name: docker
+
+    - name: Configuration du pare-feu UFW
+      include_role:
+        name: firewall
+
+    - name: Déploiement de l'application
+      include_role:
+        name: app
+
+    - name: Résumé du déploiement
+      debug:
+        msg:
+          - "=============================================="
+          - "✅ DÉPLOIEMENT TERMINÉ AVEC SUCCÈS !"
+          - "=============================================="
+          - ""
+          - "🌐 Frontend: http://{{ ansible_host }}:{{ frontend_port }}"
+          - "🔌 API Backend: http://{{ ansible_host }}:{{ api_port }}/api/health"
+          - "🗄️  Base de données: PostgreSQL sur port {{ db_port }}"
+          - ""
+          - "📋 Commandes utiles:"
+          - "  - Voir les conteneurs: docker ps"
+          - "  - Voir les logs: docker logs adsecure-backend"
+          - "  - Arrêter: cd {{ project_path }} && docker compose down"
+          - "  - Redémarrer: cd {{ project_path }} && docker compose up -d"
+          - ""
+          - "=============================================="

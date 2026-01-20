@@ -1,0 +1,36 @@
+---
+- name: Redémarrage d'AdSecureCheck
+  hosts: production
+  become: yes
+
+  tasks:
+    - name: Arrêt des conteneurs
+      community.docker.docker_compose:
+        project_src: "{{ project_path }}"
+        state: absent
+
+    - name: Attente (5s)
+      pause:
+        seconds: 5
+
+    - name: Redémarrage des conteneurs
+      community.docker.docker_compose:
+        project_src: "{{ project_path }}"
+        state: present
+
+    - name: Attente du démarrage (30s)
+      pause:
+        seconds: 30
+
+    - name: Vérification des conteneurs
+      command: docker ps
+      register: docker_ps
+      changed_when: false
+
+    - name: Affichage des conteneurs actifs
+      debug:
+        var: docker_ps.stdout_lines
+
+    - name: Confirmation du redémarrage
+      debug:
+        msg: "✅ Application redémarrée avec succès"

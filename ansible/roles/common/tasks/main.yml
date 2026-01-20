@@ -1,0 +1,38 @@
+---
+- name: Mise à jour du cache APT
+  apt:
+    update_cache: yes
+    cache_valid_time: 3600
+
+- name: Installation des packages de base
+  apt:
+    name:
+      - curl
+      - wget
+      - git
+      - vim
+      - nano
+      - ca-certificates
+      - gnupg
+      - lsb-release
+      - python3
+      - python3-pip
+      - python3-venv
+      - python3-full
+      - build-essential
+      - python3-docker
+      - pipx
+    state: present
+
+- name: Vérification de docker-py
+  command: python3 -c "import docker"
+  register: docker_py_check
+  ignore_errors: yes
+  changed_when: false
+
+- name: Installation de docker-py via pip (si nécessaire)
+  pip:
+    name: docker
+    state: present
+    break_system_packages: yes
+  when: docker_py_check.rc != 0

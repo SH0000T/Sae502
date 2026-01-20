@@ -1,0 +1,46 @@
+---
+- name: Vérification si Docker est déjà installé
+  command: docker --version
+  register: docker_installed
+  ignore_errors: yes
+  changed_when: false
+
+- name: Installation de Docker
+  block:
+    - name: Ajout de la clé GPG Docker
+      apt_key:
+        url: https://download.docker.com/linux/debian/gpg
+        state: present
+
+    - name: Ajout du dépôt Docker
+      apt_repository:
+        repo: "deb [arch=amd64] https://download.docker.com/linux/debian {{ ansible_distribution_release }} stable"
+        state: present
+
+    - name: Installation de Docker Engine
+      apt:
+        name:
+          - docker-ce
+          - docker-ce-cli
+          - containerd.io
+          - docker-buildx-plugin
+          - docker-compose-plugin
+        state: present
+        update_cache: yes
+  when: docker_installed.rc != 0
+
+- name: Ajout de l'utilisateur au groupe Docker
+  user:
+    name: "{{ ansible_user }}"
+    groups: docker
+    append: yes
+
+- name: Démarrage et activation de Docker
+  systemd:
+    name: docker
+    state: started
+    enabled: yes
+
+- name: Vérification de Docker
+  command: docker ps
+  changed_when: false

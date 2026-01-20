@@ -1,0 +1,37 @@
+---
+# Variables globales pour AdSecureCheck
+
+# Projet
+project_name: adsecurecheck
+project_path: /home/{{ ansible_user }}/Sae502
+docker_compose_file: "{{ project_path }}/docker-compose.yml"
+
+# Docker
+docker_compose_version: "2.23.0"
+
+# Base de données
+postgres_db: adsecurecheck
+postgres_user: admin
+postgres_password: ChangeMe123!
+
+# Application
+api_port: 5000
+frontend_port: 80
+db_port: 5432
+
+# Pare-feu UFW
+ufw_allowed_ports:
+  - 22      # SSH
+  - 80      # HTTP
+  - 443     # HTTPS
+  - 5000    # API (dev)
+
+# Email (optionnel)
+email_user: evanchezlui42@gmail.com
+email_password: ""  # À définir via Ansible Vault
+
+# Active Directory de test (optionnel)
+ad_server: "192.168.80.2"
+ad_domain: "adsecure.local"
+ad_username: "Administrateur"
+ad_password: "TC7PII%IUT"
