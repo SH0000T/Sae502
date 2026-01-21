@@ -1,18 +1,18 @@
 📋 Table des Matières
 
-Présentation
-Fonctionnalités
-Architecture
-Prérequis
-Installation Rapide
-Installation Détaillée
-Utilisation
-Déploiement avec Ansible
-API Documentation
-Maintenance
-Troubleshooting
-Contribution
-License
+- Présentation
+- Fonctionnalités
+- Architecture
+- Prérequis
+- Installation Rapide
+- Installation Détaillée
+- Utilisation
+- Déploiement avec Ansible
+- API Documentation
+- Maintenance
+- Troubleshooting
+- Contribution
+- License
 
 
 🎯 Présentation
