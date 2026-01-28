@@ -1,11 +1,12 @@
+shoot@Shoot:/mnt/c/Users/Shoot/Sae502$ cat install.sh
 #!/bin/bash
 
 #######################################
 # AdSecureCheck - Installation Auto
-# Version: 1.0
+# Version: 1.4 (Debian-safe, interactif)
 #######################################
 
-set -e  # Arrête si erreur
+set -e
 
 echo "=================================================="
 echo "🚀 AdSecureCheck - Installation Automatique"
@@ -16,9 +17,9 @@ echo ""
 RED='\033[0;31m'
 GREEN='\033[0;32m'
 YELLOW='\033[1;33m'
-NC='\033[0m' # No Color
+NC='\033[0m'
 
-# Variables
+# Variables par défaut
 PROJECT_DIR="$HOME/AdSecureCheck"
 AD_SERVER="192.168.80.2"
 AD_DOMAIN="adsecure.local"
@@ -27,17 +28,69 @@ AD_PASSWORD="TC7PII%IUT"
 EMAIL="evanchezlui42@gmail.com"
 
 #######################################
-# 1. Installation des dépendances
+# Demande interactive des infos AD
 #######################################
-echo -e "${YELLOW}📦 [1/7] Installation des dépendances système...${NC}"
+read -p "Adresse du serveur AD [$AD_SERVER]: " input
+[ ! -z "$input" ] && AD_SERVER="$input"
 
-sudo apt update -qq
-sudo apt install -y git curl wget docker.io docker-compose nodejs npm ansible python3-pip jq > /dev/null 2>&1
+read -p "Domaine AD [$AD_DOMAIN]: " input
+[ ! -z "$input" ] && AD_DOMAIN="$input"
 
-# Ajoute l'utilisateur au groupe docker
-sudo usermod -aG docker $USER
+read -p "Utilisateur AD [$AD_USERNAME]: " input
+[ ! -z "$input" ] && AD_USERNAME="$input"
+
+read -s -p "Mot de passe AD [$AD_PASSWORD]: " input
+echo
+[ ! -z "$input" ] && AD_PASSWORD="$input"
+
+read -p "Email pour notification [$EMAIL]: " input
+[ ! -z "$input" ] && EMAIL="$input"
+
+echo -e "${GREEN}✅ Informations AD enregistrées${NC}"
+
+#######################################
+# 0. Réparation dpkg
+#######################################
+echo -e "${YELLOW}🛠️  Vérification dpkg...${NC}"
+
+sudo dpkg --configure -a || true
+sudo apt --fix-broken install -y || true
+
+echo -e "${GREEN}✅ dpkg OK${NC}"
+
+#######################################
+# 1. Dépendances système
+#######################################
+echo -e "${YELLOW}📦 [1/7] Installation des dépendances...${NC}"
+
+sudo apt update
+
+sudo apt install -y \
+  git curl wget jq \
+  docker.io \
+  docker-compose \
+  nodejs npm \
+  ansible python3-pip
+
+# Docker
+sudo systemctl enable docker
+sudo systemctl start docker
 
 echo -e "${GREEN}✅ Dépendances installées${NC}"
+
+#######################################
+# Détection docker compose
+#######################################
+if command -v docker-compose >/dev/null 2>&1; then
+  COMPOSE_CMD="sudo docker-compose"
+elif docker compose version >/dev/null 2>&1; then
+  COMPOSE_CMD="sudo docker compose"
+else
+  echo -e "${RED}❌ Docker Compose introuvable${NC}"
+  exit 1
+fi
+
+echo -e "${GREEN}✅ Docker Compose détecté : $COMPOSE_CMD${NC}"
 
 #######################################
 # 2. Clone du projet
@@ -45,128 +98,79 @@ echo -e "${GREEN}✅ Dépendances installées${NC}"
 echo -e "${YELLOW}📥 [2/7] Clone du projet...${NC}"
 
 if [ -d "$PROJECT_DIR" ]; then
-    echo "⚠️  Le dossier existe déjà. Suppression..."
-    rm -rf "$PROJECT_DIR"
+  rm -rf "$PROJECT_DIR"
 fi
 
-git clone https://github.com/SH0000T/Sae502.git "$PROJECT_DIR" > /dev/null 2>&1
+git clone https://github.com/SH0000T/Sae502.git "$PROJECT_DIR"
 cd "$PROJECT_DIR"
 
 echo -e "${GREEN}✅ Projet cloné${NC}"
 
 #######################################
-# 3. Configuration automatique
+# 3. Configuration
 #######################################
 echo -e "${YELLOW}⚙️  [3/7] Configuration automatique...${NC}"
 
-# Créer le fichier .env pour le frontend
-cat > frontend/.env << ENVEOF
+cat > frontend/.env << EOF
 REACT_APP_API_URL=http://localhost:5000/api
-ENVEOF
+EOF
 
-# Configuration Ansible pour localhost
-cat > ansible/inventory/hosts.yml << ANSIBLEEOF
+mkdir -p ansible/inventory
+cat > ansible/inventory/hosts.yml << EOF
 all:
-  children:
-    production:
-      hosts:
-        adsecure-server:
-          ansible_host: localhost
-          ansible_connection: local
-          ansible_user: $USER
-ANSIBLEEOF
+  hosts:
+    localhost:
+      ansible_connection: local
+EOF
 
-echo -e "${GREEN}✅ Configuration terminée${NC}"
+echo -e "${GREEN}✅ Configuration OK${NC}"
 
 #######################################
-# 4. Démarrage Docker
+# 4. Docker backend + DB
 #######################################
-echo -e "${YELLOW}🐳 [4/7] Démarrage des conteneurs Docker...${NC}"
+echo -e "${YELLOW}🐳 [4/7] Démarrage Docker...${NC}"
 
-# Redémarre Docker si nécessaire
-sudo systemctl start docker > /dev/null 2>&1
+$COMPOSE_CMD down || true
+$COMPOSE_CMD up -d backend database
 
-# Arrête les anciens conteneurs
-docker compose down > /dev/null 2>&1 || true
-
-# Lance backend et base de données
-docker compose up -d backend database > /dev/null 2>&1
-
-# Attente du démarrage
-echo "⏳ Attente du démarrage des services (30s)..."
+echo "⏳ Attente services (30s)..."
 sleep 30
 
 echo -e "${GREEN}✅ Conteneurs démarrés${NC}"
 
 #######################################
-# 5. Installation frontend
+# 5. Frontend
 #######################################
-echo -e "${YELLOW}🎨 [5/7] Installation du frontend...${NC}"
+echo -e "${YELLOW}🎨 [5/7] Installation frontend...${NC}"
 
-cd "$PROJECT_DIR/frontend"
-npm install > /dev/null 2>&1
-
-# Lance le frontend en arrière-plan
-nohup npm start > /dev/null 2>&1 &
+cd frontend
+npm install
+nohup npm start > frontend.log 2>&1 &
 FRONTEND_PID=$!
 
-echo "⏳ Attente du démarrage du frontend (20s)..."
 sleep 20
 
-echo -e "${GREEN}✅ Frontend démarré (PID: $FRONTEND_PID)${NC}"
+echo -e "${GREEN}✅ Frontend lancé (PID $FRONTEND_PID)${NC}"
 
 #######################################
-# 6. Tests de connectivité
+# 6. Tests
 #######################################
-echo -e "${YELLOW}🧪 [6/7] Tests de connectivité...${NC}"
+echo -e "${YELLOW}🧪 [6/7] Tests...${NC}"
 
 cd "$PROJECT_DIR"
 
-# Test API
-echo "  🔍 Test de l'API..."
 API_HEALTH=$(curl -s http://localhost:5000/api/health | jq -r '.status')
 
-if [ "$API_HEALTH" = "ok" ]; then
-    echo -e "  ${GREEN}✅ API Backend : OK${NC}"
-else
-    echo -e "  ${RED}❌ API Backend : ERREUR${NC}"
-    exit 1
+if [ "$API_HEALTH" != "ok" ]; then
+  echo -e "${RED}❌ API KO${NC}"
+  exit 1
 fi
-
-# Test connexion AD
-echo "  🔍 Test de connexion Active Directory..."
-AD_TEST=$(curl -s -X POST http://localhost:5000/api/ad/test-connection \
-  -H "Content-Type: application/json" \
-  -d "{
-    \"ad_server\": \"$AD_SERVER\",
-    \"ad_domain\": \"$AD_DOMAIN\",
-    \"ad_username\": \"$AD_USERNAME\",
-    \"ad_password\": \"$AD_PASSWORD\",
-    \"use_ssl\": false
-  }" | jq -r '.success')
-
-if [ "$AD_TEST" = "true" ]; then
-    echo -e "  ${GREEN}✅ Connexion AD : OK${NC}"
-else
-    echo -e "  ${YELLOW}⚠️  Connexion AD : Échec (vérifiez vos credentials)${NC}"
-fi
-
-# Test frontend
-sleep 5
-FRONTEND_STATUS=$(curl -s -o /dev/null -w "%{http_code}" http://localhost:3000)
-
-if [ "$FRONTEND_STATUS" = "200" ]; then
-    echo -e "  ${GREEN}✅ Frontend : OK${NC}"
-else
-    echo -e "  ${YELLOW}⚠️  Frontend : En cours de démarrage...${NC}"
-fi
-
-echo -e "${GREEN}✅ Tests terminés${NC}"
+echo -e "${GREEN}✅ API OK${NC}"
 
 #######################################
-# 7. Lancement du scan automatique
+# 7. Scan automatique
 #######################################
-echo -e "${YELLOW}🚀 [7/7] Lancement du scan automatique...${NC}"
+echo -e "${YELLOW}🚀 [7/7] Lancement du scan...${NC}"
 
 SCAN_RESPONSE=$(curl -s -X POST http://localhost:5000/api/scans/start \
   -H "Content-Type: application/json" \
@@ -183,35 +187,22 @@ SCAN_RESPONSE=$(curl -s -X POST http://localhost:5000/api/scans/start \
 SCAN_ID=$(echo "$SCAN_RESPONSE" | jq -r '.scan.id')
 
 if [ "$SCAN_ID" != "null" ]; then
-    echo -e "${GREEN}✅ Scan lancé avec succès (ID: $SCAN_ID)${NC}"
-    echo "⏳ Le scan prend 2-5 minutes..."
+  echo -e "${GREEN}✅ Scan lancé (ID $SCAN_ID)${NC}"
 else
-    echo -e "${RED}❌ Erreur lors du lancement du scan${NC}"
-    echo "$SCAN_RESPONSE" | jq '.'
+  echo -e "${RED}❌ Erreur scan${NC}"
+  echo "$SCAN_RESPONSE"
 fi
 
 #######################################
-# 8. Résumé final
+# FIN
 #######################################
 echo ""
 echo "=================================================="
-echo -e "${GREEN}✅ INSTALLATION TERMINÉE AVEC SUCCÈS !${NC}"
+echo -e "${GREEN}✅ INSTALLATION TERMINÉE${NC}"
 echo "=================================================="
-echo ""
-echo "📊 Informations d'accès :"
-echo "  🌐 Frontend : http://localhost:3000"
-echo "  🔌 API      : http://localhost:5000"
-echo "  📧 Email    : $EMAIL"
-echo ""
-echo "📋 Commandes utiles :"
-echo "  • Voir les conteneurs : docker ps"
-echo "  • Logs backend        : docker logs adsecure-backend"
-echo "  • Arrêter tout        : cd $PROJECT_DIR && ./stop.sh"
-echo ""
-echo "📂 Projet installé dans : $PROJECT_DIR"
-echo ""
+echo "🌐 Frontend : http://localhost:3000"
+echo "🔌 API      : http://localhost:5000"
+echo "📂 Projet   : $PROJECT_DIR"
 echo "=================================================="
 
-# Sauvegarde du PID du frontend
 echo "$FRONTEND_PID" > "$PROJECT_DIR/.frontend.pid"
-
