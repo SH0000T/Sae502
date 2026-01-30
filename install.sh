@@ -1,4 +1,3 @@
-shoot@Shoot:/mnt/c/Users/Shoot/Sae502$ cat install.sh
 #!/bin/bash
 
 #######################################

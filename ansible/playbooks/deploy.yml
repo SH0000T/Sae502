@@ -1,5 +1,5 @@
 ---
-- name: Déploiement complet d'AdSecureCheck
+- name: Déploiement AdSecureCheck via install.sh
   hosts: production
   become: yes
   gather_facts: yes
@@ -7,44 +7,40 @@
     - ../group_vars/all.yml
 
   tasks:
-    - name: Affichage des informations du système
-      debug:
-        msg:
-          - "Système: {{ ansible_distribution }} {{ ansible_distribution_version }}"
-          - "Hostname: {{ ansible_hostname }}"
-          - "User: {{ ansible_user }}"
+    - name: Vérifier que git est installé
+      apt:
+        name: git
+        state: present
+        update_cache: yes
 
-    - name: Installation des packages de base
-      include_role:
-        name: common
+    - name: Vérifier que curl est installé
+      apt:
+        name: curl
+        state: present
+        update_cache: yes
 
-    - name: Installation et configuration de Docker
-      include_role:
-        name: docker
+    - name: Cloner le dépôt Git si nécessaire
+      git:
+        repo: "https://github.com/SH0000T/Sae502.git"
+        dest: "{{ project_path | default('/home/{{ ansible_user }}/AdSecureCheck') }}"
+        version: "main"
+        update: yes
 
-    - name: Configuration du pare-feu UFW
-      include_role:
-        name: firewall
+    - name: S'assurer que le script install.sh est exécutable
+      file:
+        path: "{{ project_path | default('/home/{{ ansible_user }}/AdSecureCheck') }}/install.sh"
+        mode: '0755'
 
-    - name: Déploiement de l'application
-      include_role:
-        name: app
+    - name: Lancer le script install.sh
+      command: "{{ project_path | default('/home/{{ ansible_user }}/AdSecureCheck') }}/install.sh"
+      args:
+        chdir: "{{ project_path | default('/home/{{ ansible_user }}/AdSecureCheck') }}"
 
-    - name: Résumé du déploiement
+    - name: Afficher le message final
       debug:
         msg:
           - "=============================================="
           - "✅ DÉPLOIEMENT TERMINÉ AVEC SUCCÈS !"
-          - "=============================================="
-          - ""
-          - "🌐 Frontend: http://{{ ansible_host }}:{{ frontend_port }}"
-          - "🔌 API Backend: http://{{ ansible_host }}:{{ api_port }}/api/health"
-          - "🗄️  Base de données: PostgreSQL sur port {{ db_port }}"
-          - ""
-          - "📋 Commandes utiles:"
-          - "  - Voir les conteneurs: docker ps"
-          - "  - Voir les logs: docker logs adsecure-backend"
-          - "  - Arrêter: cd {{ project_path }} && docker compose down"
-          - "  - Redémarrer: cd {{ project_path }} && docker compose up -d"
-          - ""
+          - "🌐 Frontend: http://{{ ansible_host }}:{{ frontend_port | default('3000') }}"
+          - "🔌 API Backend: http://{{ ansible_host }}:{{ api_port | default('5000') }}/api/health"
           - "=============================================="
