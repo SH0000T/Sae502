@@ -9,9 +9,9 @@
 
 ```bash
 sudo apt update && sudo apt install -y git && \
-git clone https://github.com/SH0000T/Sae502.git && \
+sudo git clone https://github.com/SH0000T/Sae502.git && \
 cd Sae502 && \
-chmod +x install-manual.sh && \
+sudo chmod +x install-manual.sh && \
 ./install-manual.sh
 
 
