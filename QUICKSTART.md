@@ -1,7 +1,22 @@
-2️⃣
+# 🚀 AdSecureCheck – Quick Start
 
-Le script installe automatiquement Ansible si nécessaire
+## 📌 Prérequis
+- Debian / Ubuntu
+- Accès sudo
+- Connexion Internet
 
-Le déploiement est entièrement géré par Ansible
+## ⚡ Installation rapide (1 commande)
 
-Aucune configuration manuelle requise
+```bash
+sudo apt update && sudo apt install -y git && \
+git clone https://github.com/SH0000T/Sae502.git && \
+cd Sae502 && \
+chmod +x install-manual.sh && \
+./install-manual.sh
+
+
+## 🌐 Accès à l'application
+
+- **Frontend** : http://localhost:3000  
+- **API** : http://localhost:5000  
+
