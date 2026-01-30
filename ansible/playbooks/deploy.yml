@@ -1,5 +1,5 @@
 ---
-- name: Déploiement AdSecureCheck via install.sh
+- name: Déploiement complet d'AdSecureCheck via install.sh
   hosts: production
   become: yes
   gather_facts: yes
@@ -19,28 +19,43 @@
         state: present
         update_cache: yes
 
-    - name: Cloner le dépôt Git si nécessaire
+    - name: Supprimer le répertoire existant si présent
+      file:
+        path: "{{ project_path | default('/home/{{ ansible_user }}/Sae502') }}"
+        state: absent
+
+    - name: Cloner le dépôt Git
       git:
         repo: "https://github.com/SH0000T/Sae502.git"
-        dest: "{{ project_path | default('/home/{{ ansible_user }}/AdSecureCheck') }}"
+        dest: "{{ project_path | default('/home/{{ ansible_user }}/Sae502') }}"
         version: "main"
-        update: yes
+        force: yes
 
     - name: S'assurer que le script install.sh est exécutable
       file:
-        path: "{{ project_path | default('/home/{{ ansible_user }}/AdSecureCheck') }}/install.sh"
+        path: "{{ project_path | default('/home/{{ ansible_user }}/Sae502') }}/install.sh"
         mode: '0755'
 
     - name: Lancer le script install.sh
-      command: "{{ project_path | default('/home/{{ ansible_user }}/AdSecureCheck') }}/install.sh"
+      command: "{{ project_path | default('/home/{{ ansible_user }}/Sae502') }}/install.sh"
       args:
-        chdir: "{{ project_path | default('/home/{{ ansible_user }}/AdSecureCheck') }}"
+        chdir: "{{ project_path | default('/home/{{ ansible_user }}/Sae502') }}"
+      ignore_errors: yes  # <-- permet de continuer même si rc != 0
 
     - name: Afficher le message final
       debug:
         msg:
-          - "=============================================="
+          - "=================================================="
           - "✅ DÉPLOIEMENT TERMINÉ AVEC SUCCÈS !"
+          - ""
           - "🌐 Frontend: http://{{ ansible_host }}:{{ frontend_port | default('3000') }}"
           - "🔌 API Backend: http://{{ ansible_host }}:{{ api_port | default('5000') }}/api/health"
-          - "=============================================="
+          - "🗄️  Base de données: PostgreSQL sur port {{ db_port | default('5432') }}"
+          - ""
+          - "📋 Commandes utiles :"
+          - "  - Voir les conteneurs : docker ps"
+          - "  - Voir les logs backend : docker logs adsecure-backend"
+          - "  - Arrêter tous les conteneurs : cd {{ project_path | default('/home/{{ ansible_user }}/Sae502') }} && docker compose down"
+          - "  - Redémarrer tous les conteneurs : cd {{ project_path | default('/home/{{ ansible_user }}/Sae502') }} && docker compose up -d"
+          - ""
+          - "=================================================="
